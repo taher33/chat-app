@@ -6,11 +6,6 @@ const router = express.Router();
 
 const client = redis.createClient();
 
-const createSession = () => {
-  //todo : use express-session and redis-store to create a user session
-  //todo : check if u can acsess redis data with sockets
-};
-
 router.post("/signup", async (req, res, next) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password)
@@ -22,7 +17,8 @@ router.post("/signup", async (req, res, next) => {
       email,
       password: hashedPassword,
     });
-    client.lpush("user", "JSON.stringify({ name, email })");
+    req.session.userId = newUser._id;
+
     res.json({ newUser });
   } catch (err) {
     console.error(err);
@@ -34,7 +30,7 @@ router.post("/login", async (req, res, next) => {
   const { email, password } = req.body;
   if (!email || !password)
     return res.status(400).json({ err: "must specify email and password" });
-
+  console.log(req.session.userId);
   try {
     const client = await User.findOne({ email }).select("+password");
     if (!client) return res.status(404).json({ err: "user does not exist" });

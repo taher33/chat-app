@@ -15,29 +15,12 @@ const server = http.createServer(app);
 let RedisStore = require("connect-redis")(session);
 let redisClient = redis.createClient();
 
-app.use(
-  session({
-    store: new RedisStore({ client: redisClient }),
-    saveUninitialized: false,
-    name: "jid",
-    secret: "keyboard cat",
-    resave: false,
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 1000 * 3600 * 24 * 2, //2 days
-    },
-  })
-);
-
 const io = require("socket.io")(server, {
   cors: {
     origin: "http://localhost:3000",
     methods: ["GET", "POST"],
   },
 });
-
-const client = redis.createClient();
 
 app.use(morgan("dev"));
 
@@ -58,6 +41,20 @@ app.use(
 );
 
 app.use(express.json());
+app.use(
+  session({
+    store: new RedisStore({ client: redisClient }),
+    saveUninitialized: false,
+    name: "jid",
+    secret: "keyboard cat",
+    resave: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 1000 * 3600 * 24 * 2, //2 days
+    },
+  })
+);
 
 app.get("/", (req, res) => {
   res.send("hey there");
@@ -68,7 +65,22 @@ app.use("/users", users);
 const wrap = (middleware) => (socket, next) =>
   middleware(socket.request, {}, next);
 //socket middleware
-io.use(wrap(morgan("dev")));
+io.use(
+  wrap(
+    session({
+      store: new RedisStore({ client: redisClient }),
+      saveUninitialized: false,
+      name: "jid",
+      secret: "keyboard cat",
+      resave: false,
+      cookie: {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: 1000 * 3600 * 24 * 2, //2 days
+      },
+    })
+  )
+);
 
 // io.on("connection", (socket) => {
 //   client.lrange("user", 0, -1, (err, user) => {
@@ -93,7 +105,6 @@ io.use(wrap(morgan("dev")));
 
 //functions
 const onConnection = (socket) => {
-  console.log(socket.id);
   signUp(io, socket);
 };
 
