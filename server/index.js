@@ -13,6 +13,10 @@ const handlechat = require("./routes/handlechat");
 
 const server = http.createServer(app);
 
+const dotenv = require("dotenv").config({
+  path: "./config.env",
+});
+
 let RedisStore = require("connect-redis")(session);
 let redisClient = redis.createClient();
 
@@ -40,7 +44,7 @@ const io = require("socket.io")(server, {
 });
 
 mongoose.connect(
-  "mongodb+srv://taher33:taher33@node-shop.rcpzm.mongodb.net/myFirstDatabase?retryWrites=true&w=majority",
+  `mongodb+srv://taher33:${process.env.MONGO_PASS}@node-shop.rcpzm.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`,
   {
     useNewUrlParser: true,
     useUnifiedTopology: true,
