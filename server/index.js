@@ -5,40 +5,16 @@ const morgan = require("morgan");
 const http = require("http");
 const redis = require("redis");
 const session = require("express-session");
+const sharedSession = require("express-socket.io-session");
 const mongoose = require("mongoose");
 const users = require("./routes/users");
 const { signUp } = require("./routes/handleAuth");
-const { addUser, getUser } = require("./users");
+const handlechat = require("./routes/handlechat");
 
 const server = http.createServer(app);
 
 let RedisStore = require("connect-redis")(session);
 let redisClient = redis.createClient();
-
-const io = require("socket.io")(server, {
-  cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"],
-  },
-});
-
-app.use(morgan("dev"));
-
-mongoose.connect(
-  "mongodb+srv://taher33:taher33@node-shop.rcpzm.mongodb.net/myFirstDatabase?retryWrites=true&w=majority",
-  {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useCreateIndex: true,
-  },
-  (data) => console.log(data, "connected")
-);
-
-app.use(
-  cors({
-    origin: "http://localhost:3000/",
-  })
-);
 
 app.use(express.json());
 app.use(
@@ -56,6 +32,23 @@ app.use(
   })
 );
 
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+  },
+});
+
+mongoose.connect(
+  "mongodb+srv://taher33:taher33@node-shop.rcpzm.mongodb.net/myFirstDatabase?retryWrites=true&w=majority",
+  {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    useCreateIndex: true,
+  },
+  (data) => console.log(data, "connected")
+);
+
 app.get("/", (req, res) => {
   res.send("hey there");
 });
@@ -66,7 +59,7 @@ const wrap = (middleware) => (socket, next) =>
   middleware(socket.request, {}, next);
 //socket middleware
 io.use(
-  wrap(
+  sharedSession(
     session({
       store: new RedisStore({ client: redisClient }),
       saveUninitialized: false,
@@ -106,6 +99,7 @@ io.use(
 //functions
 const onConnection = (socket) => {
   signUp(io, socket);
+  handlechat(io, socket, redisClient);
 };
 
 //connection

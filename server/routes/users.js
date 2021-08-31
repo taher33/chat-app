@@ -37,6 +37,7 @@ router.post("/login", async (req, res, next) => {
     if (!(await comparePassword(password, client.password))) {
       return res.status(400).json({ err: "wrong password" });
     }
+    req.session.userId = client._id;
 
     res.json({ client });
   } catch (error) {
