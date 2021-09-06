@@ -4,37 +4,18 @@ const cors = require("cors");
 const morgan = require("morgan");
 const http = require("http");
 const redis = require("redis");
-const session = require("express-session");
-const sharedSession = require("express-socket.io-session");
 const mongoose = require("mongoose");
 const users = require("./routes/users");
 const { signUp } = require("./routes/handleAuth");
 const handlechat = require("./routes/handlechat");
+const asyncRedis = require("async-redis");
 
 const server = http.createServer(app);
 
 const dotenv = require("dotenv").config({
   path: "./config.env",
 });
-
-let RedisStore = require("connect-redis")(session);
-let redisClient = redis.createClient();
-
-app.use(express.json());
-app.use(
-  session({
-    store: new RedisStore({ client: redisClient }),
-    saveUninitialized: false,
-    name: "jid",
-    secret: "keyboard cat",
-    resave: false,
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 1000 * 3600 * 24 * 2, //2 days
-    },
-  })
-);
+const client = asyncRedis.createClient();
 
 const io = require("socket.io")(server, {
   cors: {
@@ -62,22 +43,6 @@ app.use("/users", users);
 const wrap = (middleware) => (socket, next) =>
   middleware(socket.request, {}, next);
 //socket middleware
-io.use(
-  sharedSession(
-    session({
-      store: new RedisStore({ client: redisClient }),
-      saveUninitialized: false,
-      name: "jid",
-      secret: "keyboard cat",
-      resave: false,
-      cookie: {
-        httpOnly: true,
-        sameSite: "lax",
-        maxAge: 1000 * 3600 * 24 * 2, //2 days
-      },
-    })
-  )
-);
 
 // io.on("connection", (socket) => {
 //   client.lrange("user", 0, -1, (err, user) => {
@@ -102,8 +67,8 @@ io.use(
 
 //functions
 const onConnection = (socket) => {
-  signUp(io, socket);
-  handlechat(io, socket, redisClient);
+  signUp(io, socket, client);
+  handlechat(io, socket, client);
 };
 
 //connection

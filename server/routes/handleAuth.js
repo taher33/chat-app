@@ -1,9 +1,7 @@
-const redis = require("redis");
 const jwt = require("jsonwebtoken");
 const User = require("../models/users");
 const { hashPassword, comparePassword } = require("../utils/hashPassword");
-
-const client = redis.createClient();
+const { handleToken } = require("../utils/jwt-token");
 
 const signToken = (data) => {
   return jwt.sign({ data }, process.env.JWT_SECRET || "cute cat", {
@@ -11,7 +9,7 @@ const signToken = (data) => {
   });
 };
 
-exports.signUp = (io, socket) => {
+exports.signUp = (io, socket, client) => {
   const signup = async (payload, cb) => {
     const { userName, password, email } = payload;
     if (!userName || !password || !email)
@@ -27,11 +25,6 @@ exports.signUp = (io, socket) => {
       const token = signToken({ id: newUser._id, email });
       //sending the token for the user
       cb({ user: { name: userName, email, id: newUser._id }, token });
-      socket.handshake.session.user = {
-        name: userName,
-        email,
-        id: newUser._id,
-      };
 
       client.lpush(
         "users",
@@ -42,30 +35,43 @@ exports.signUp = (io, socket) => {
           id: newUser._id,
         })
       );
-      client.lrange("users", 0, -1, (err, usersString) => {
-        let users = usersString.map((user) => JSON.parse(user));
-        users = users.filter((element) => element.id !== socket.user.id);
-        io.emit("user connecting", users);
-      });
+
+      const usersString = await client.lrange("users", 0, -1);
+      let users = usersString.map((user) => JSON.parse(user));
+      users = users.filter((element) => element.id !== newUser._id);
+      io.emit("user connecting", users);
+
       console.log("sign up");
     } catch (err) {
       cb({ error: "NOK" });
-      console.log(err);
+      // console.log(err);
+      console.log("erooooor");
     }
   };
   const login = async (payload, cb) => {
     const { email, password } = payload;
-    console.log(payload);
     if (!email || !password) return cb({ error: "must specify all fields" });
 
     try {
-      const user = await User.findOne({ email }).select("+password");
+      let user;
+      let token;
+      const usersString = await client.lrange("users", 0, -1);
+
+      let users = usersString.map((user) => JSON.parse(user));
+      user = users.filter((element) => element.email === email);
+
+      if (user.length !== 0) {
+        token = signToken({ id: user._id, email });
+        return cb({ user: { name: user.name, email, id: user._id }, token });
+      }
+
+      user = await User.findOne({ email }).select("+password");
       if (!user) return cb({ error: "password or email are worng" });
       if (!(await comparePassword(password, user.password)))
         return cb({ error: "password or email are worng" });
 
-      const token = signToken({ id: user._id, email });
-      cb({ user: { name: userName, email, id: user._id }, token });
+      token = signToken({ id: user._id, email });
+      cb({ user: { name: user.name, email, id: user._id }, token });
       client.lpush(
         "users",
         JSON.stringify({
@@ -82,15 +88,19 @@ exports.signUp = (io, socket) => {
     }
   };
 
-  const sendConnectedUsers = () => {
-    client.lrange("users", 0, -1, (err, usersString) => {
+  const sendConnectedUsers = async (cb) => {
+    try {
+      handleToken(socket);
+      const usersString = await client.lrange("users", 0, -1);
       let users = usersString.map((user) => JSON.parse(user));
       users = users.filter((element) => element.id !== socket.user.id);
-      io.emit("user connecting", users);
-    });
+      cb(users);
+    } catch (err) {
+      console.log(err);
+    }
   };
 
   socket.on("signup", signup);
-  socket.on("connect", sendConnectedUsers);
+  socket.on("connect to server", sendConnectedUsers);
   socket.on("login", login);
 };
