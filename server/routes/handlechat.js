@@ -1,85 +1,73 @@
 const Messages = require("../models/messages");
 const Users = require("../models/users");
-const jwt = require("jsonwebtoken");
-module.exports = (io, socket, client) => {
-  function privateMessage(payload, cb) {
-    handleToken();
-    console.log("private message", socket.user);
-    if (!socket.user) return console.log("login");
+const { handleToken } = require("../utils/jwt-token");
 
+module.exports = (io, socket, client) => {
+  async function privateMessage(payload, cb) {
+    handleToken(socket);
+    if (!socket.user.data.id) return cb({ error: "login please" }); //! should send an error to the client
+    console.log(socket.user.data);
     const { email, message } = payload;
-    client.lrange("users", 0, -1, (err, usersString) => {
-      console.log("redis error", err);
-      let recieverId = undefined;
+    try {
+      const usersString = await client.lrange("users", 0, -1);
+
+      let recieverId;
+      let msg;
       const users = usersString.map((user) => JSON.parse(user));
       const user = users.filter((user) => user.email === email);
       // TODO : check if this works down here
       if (user.length !== 0) {
-        console.log("user", user);
         recieverId = user[0].id;
-        socket.to(user[0].socketId).emit("private message", message);
+        msg = {
+          reciever: recieverId,
+          sender: socket.user.data.id,
+          content: message,
+        };
+        console.log("messsaaaage", msg);
+        socket.to(user[0].socketId).emit("private message", msg);
       } else {
-        Users.find({ email })
-          .then((user) => {
-            recieverId = user._id;
-          })
-          .catch((err) => console.log(err));
+        recieverId = await Users.find({ email })._id;
       }
 
       //todo: make the error handler for this
 
-      if (!recieverId) return console.log("user does not exist");
-      console.log("made it here");
-      Messages.create({
+      if (!recieverId) return cb({ error: "user does not exist" });
+      msg.reciever = recieverId;
+      cb({ message: msg });
+      console.log("id exists ----------------");
+      // storing the message
+      await Messages.create({
         sender: socket.user.data.id,
         content: message,
         reciever: recieverId,
-      })
-        .then(() => console.log("message created"))
-        .catch((err) => console.log(err));
-    });
+      });
+    } catch (error) {
+      cb({ error: "NOK" });
+      console.log(error);
+    }
   }
-
   const getMessages = async (payload, cb) => {
     const selectedUserID = payload.id;
-    handleToken();
-    console.log("get message", socket.user);
+    handleToken(socket);
 
     let prevMessages = [];
     try {
-      prevMessages.push(
-        ...(await Messages.find({
-          sender: selectedUserID,
-          reciever: socket.user.data.id,
-        }))
-      );
-      prevMessages.push(
-        ...(await Messages.find({
-          reciever: selectedUserID,
-          sender: socket.user.data.id,
-        }))
-      );
+      const prevmsg1 = await Messages.find({
+        sender: selectedUserID,
+        reciever: socket.user.data.id,
+      });
+      const prevmsg2 = await Messages.find({
+        sender: socket.user.data.id,
+        reciever: selectedUserID,
+      });
+      prevMessages = [...prevmsg1, ...prevmsg2];
       cb({ message: prevMessages });
-      console.log(prevMessages);
     } catch (error) {
       cb({ error: "NOK" });
       console.log(error);
     }
   };
 
-  const handleToken = async () => {
-    const token = socket.handshake.auth.token;
-    console.log(socket.handshake.auth, "token");
-    try {
-      if (!token || token === "abcd")
-        return socket.emit("connect_error", "not authorized");
-      const decoded = jwt.verify(token, "cute cat");
-      socket.user = decoded;
-    } catch (err) {
-      console.error("err");
-      socket.emit("connect_error", "NOK");
-    }
-  };
   socket.on("private message", privateMessage);
   socket.on("get previous messages", getMessages);
 };

@@ -61,17 +61,18 @@ exports.signUp = (io, socket, client) => {
       user = users.filter((element) => element.email === email);
 
       if (user.length !== 0) {
-        token = signToken({ id: user._id, email });
+        token = signToken({ id: user[0].id, email });
         return cb({ user: { name: user.name, email, id: user._id }, token });
+      } else {
+        user = await User.findOne({ email }).select("+password");
+        if (!user) return cb({ error: "password or email are worng" });
+        if (!(await comparePassword(password, user.password)))
+          return cb({ error: "password or email are worng" });
+
+        token = signToken({ id: user._id, email });
+        cb({ user: { name: user.name, email, id: user._id }, token });
       }
 
-      user = await User.findOne({ email }).select("+password");
-      if (!user) return cb({ error: "password or email are worng" });
-      if (!(await comparePassword(password, user.password)))
-        return cb({ error: "password or email are worng" });
-
-      token = signToken({ id: user._id, email });
-      cb({ user: { name: user.name, email, id: user._id }, token });
       client.lpush(
         "users",
         JSON.stringify({
@@ -93,8 +94,8 @@ exports.signUp = (io, socket, client) => {
       handleToken(socket);
       const usersString = await client.lrange("users", 0, -1);
       let users = usersString.map((user) => JSON.parse(user));
-      users = users.filter((element) => element.id !== socket.user.id);
-      cb(users);
+      users = users.filter((element) => element.id !== socket.user.data.id);
+      cb(users, socket.user.data);
     } catch (err) {
       console.log(err);
     }
