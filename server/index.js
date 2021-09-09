@@ -69,6 +69,10 @@ const wrap = (middleware) => (socket, next) =>
 const onConnection = (socket) => {
   signUp(io, socket, client);
   handlechat(io, socket, client);
+
+  io.of("/").adapter.on("join-room", (room, id) => {
+    console.log(`socket ${id} has joined room ${room}`);
+  });
 };
 
 //connection

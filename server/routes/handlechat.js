@@ -5,16 +5,17 @@ const { handleToken } = require("../utils/jwt-token");
 module.exports = (io, socket, client) => {
   async function privateMessage(payload, cb) {
     handleToken(socket);
-    if (!socket.user.data.id) return cb({ error: "login please" }); //! should send an error to the client
-    console.log(socket.user.data);
+    if (!socket.user.data.id) return cb({ error: "login please" }); //! should handle the error in the client
+    console.log(socket.id, "socket id actual");
     const { email, message } = payload;
     try {
-      const usersString = await client.lrange("users", 0, -1);
+      const usersString = await client.smembers("users");
 
       let recieverId;
       let msg;
       const users = usersString.map((user) => JSON.parse(user));
       const user = users.filter((user) => user.email === email);
+
       // TODO : check if this works down here
       if (user.length !== 0) {
         recieverId = user[0].id;
@@ -23,8 +24,8 @@ module.exports = (io, socket, client) => {
           sender: socket.user.data.id,
           content: message,
         };
-        console.log("messsaaaage", msg);
-        socket.to(user[0].socketId).emit("private message", msg);
+        console.log("socket id", user[0].socketId);
+        socket.to(user[0].id).emit("private message", msg);
       } else {
         recieverId = await Users.find({ email })._id;
       }

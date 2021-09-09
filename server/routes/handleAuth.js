@@ -26,7 +26,7 @@ exports.signUp = (io, socket, client) => {
       //sending the token for the user
       cb({ user: { name: userName, email, id: newUser._id }, token });
 
-      client.lpush(
+      client.sadd(
         "users",
         JSON.stringify({
           name: userName,
@@ -36,9 +36,8 @@ exports.signUp = (io, socket, client) => {
         })
       );
 
-      const usersString = await client.lrange("users", 0, -1);
+      const usersString = await client.smembers("users");
       let users = usersString.map((user) => JSON.parse(user));
-      users = users.filter((element) => element.id !== newUser._id);
       io.emit("user connecting", users);
 
       console.log("sign up");
@@ -55,7 +54,7 @@ exports.signUp = (io, socket, client) => {
     try {
       let user;
       let token;
-      const usersString = await client.lrange("users", 0, -1);
+      const usersString = await client.smembers("users");
 
       let users = usersString.map((user) => JSON.parse(user));
       user = users.filter((element) => element.email === email);
@@ -73,7 +72,7 @@ exports.signUp = (io, socket, client) => {
         cb({ user: { name: user.name, email, id: user._id }, token });
       }
 
-      client.lpush(
+      client.sadd(
         "users",
         JSON.stringify({
           name: user.name,
@@ -92,16 +91,21 @@ exports.signUp = (io, socket, client) => {
   const sendConnectedUsers = async (cb) => {
     try {
       handleToken(socket);
-      const usersString = await client.lrange("users", 0, -1);
+      socket.join(socket.user.data.id);
+      const usersString = await client.smembers("users");
       let users = usersString.map((user) => JSON.parse(user));
-      users = users.filter((element) => element.id !== socket.user.data.id);
       cb(users, socket.user.data);
     } catch (err) {
       console.log(err);
     }
   };
 
+  const onDisconnect = async () => {
+    // code...
+  };
+
   socket.on("signup", signup);
   socket.on("connect to server", sendConnectedUsers);
   socket.on("login", login);
+  socket.on("disconnect", onDisconnect);
 };
