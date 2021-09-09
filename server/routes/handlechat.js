@@ -62,6 +62,10 @@ module.exports = (io, socket, client) => {
         reciever: selectedUserID,
       });
       prevMessages = [...prevmsg1, ...prevmsg2];
+      prevMessages.sort((msg1, msg2) => {
+        return msg1.createdAt - msg2.createdAt;
+      });
+      console.log(prevMessages);
       cb({ message: prevMessages });
     } catch (error) {
       cb({ error: "NOK" });
