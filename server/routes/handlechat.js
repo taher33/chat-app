@@ -1,12 +1,13 @@
 const Messages = require("../models/messages");
 const Users = require("../models/users");
+const { handleError } = require("../utils/errors");
 const { handleToken } = require("../utils/jwt-token");
 
 module.exports = (io, socket, client) => {
   async function privateMessage(payload, cb) {
     handleToken(socket);
     if (!socket.user.data.id) return cb({ error: "login please" }); //! should handle the error in the client
-    console.log(socket.id, "socket id actual");
+
     const { email, message } = payload;
     try {
       const usersString = await client.smembers("users");
@@ -24,7 +25,7 @@ module.exports = (io, socket, client) => {
           sender: socket.user.data.id,
           content: message,
         };
-        console.log("socket id", user[0].socketId);
+
         socket.to(user[0].id).emit("private message", msg);
       } else {
         recieverId = await Users.find({ email })._id;
@@ -43,8 +44,8 @@ module.exports = (io, socket, client) => {
         reciever: recieverId,
       });
     } catch (error) {
-      cb({ error: "NOK" });
-      console.log(error);
+      const error = handleError(err);
+      cb({ error });
     }
   }
   const getMessages = async (payload, cb) => {
@@ -65,11 +66,10 @@ module.exports = (io, socket, client) => {
       prevMessages.sort((msg1, msg2) => {
         return msg1.createdAt - msg2.createdAt;
       });
-      console.log(prevMessages);
       cb({ message: prevMessages });
     } catch (error) {
-      cb({ error: "NOK" });
-      console.log(error);
+      const error = handleError(err);
+      cb({ error });
     }
   };
 

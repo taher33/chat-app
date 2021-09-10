@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/users");
+const { handleError } = require("../utils/errors");
 const { hashPassword, comparePassword } = require("../utils/hashPassword");
 const { handleToken } = require("../utils/jwt-token");
 
@@ -42,9 +43,8 @@ exports.signUp = (io, socket, client) => {
 
       console.log("sign up");
     } catch (err) {
-      cb({ error: "NOK" });
-      // console.log(err);
-      console.log("erooooor");
+      const error = handleError(err);
+      cb({ error });
     }
   };
   const login = async (payload, cb) => {
@@ -83,8 +83,8 @@ exports.signUp = (io, socket, client) => {
       );
       console.log("login success");
     } catch (err) {
-      cb({ error: "NOK" });
-      console.log(err);
+      const error = handleError(err);
+      cb({ error });
     }
   };
 
@@ -96,7 +96,8 @@ exports.signUp = (io, socket, client) => {
       let users = usersString.map((user) => JSON.parse(user));
       cb(users, socket.user.data);
     } catch (err) {
-      console.log(err);
+      const error = handleError(err);
+      cb({ error });
     }
   };
 
