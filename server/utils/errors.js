@@ -4,7 +4,8 @@ const handleCastErr = (err) => {
 };
 const handleDuplicateErr = (err) => {
   const value = Object.keys(err.keyValue)[0];
-  const message = ` ${value} already exists`;
+  const message = `${value} already exists`;
+  console.log(message);
   return { message };
 };
 
@@ -18,9 +19,9 @@ const handleValdiationErr = (err) => {
 const hendleJWTerr = () => ({ message: "login again please" });
 
 exports.handleError = (err) => {
-  let error = { ...err };
-  if (error.name === "CastError") error = handleCastErr(error);
-  if (error.code === 11000) error = handleDuplicateErr(error);
+  let error = { message: "NOK" };
+  if (err.name === "CastError") error = handleCastErr(err);
+  if (err.code === 11000) error = handleDuplicateErr(err);
   if (
     err.message.match("validation failed") ||
     err.name.match("ValidationError")
@@ -28,6 +29,5 @@ exports.handleError = (err) => {
     error = handleValdiationErr(err);
   if (err.name === "JsonWebTokenError") error = hendleJWTerr();
   if (err.name === "TokenExpiredError") error = hendleJWTerr();
-  else error = { message: "NOK" };
   return error;
 };

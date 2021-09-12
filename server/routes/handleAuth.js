@@ -23,7 +23,7 @@ exports.signUp = (io, socket, client) => {
         password: hashedPassword,
       });
       //creating the token jwt
-      const token = signToken({ id: newUser._id, email });
+      const token = signToken({ id: newUser._id, email, name: userName });
       //sending the token for the user
       cb({ user: { name: userName, email, id: newUser._id }, token });
 
@@ -32,7 +32,6 @@ exports.signUp = (io, socket, client) => {
         JSON.stringify({
           name: userName,
           email,
-          socketId: socket.id,
           id: newUser._id,
         })
       );
@@ -44,6 +43,7 @@ exports.signUp = (io, socket, client) => {
       console.log("sign up");
     } catch (err) {
       const error = handleError(err);
+      console.log(error);
       cb({ error });
     }
   };
@@ -60,7 +60,7 @@ exports.signUp = (io, socket, client) => {
       user = users.filter((element) => element.email === email);
 
       if (user.length !== 0) {
-        token = signToken({ id: user[0].id, email });
+        token = signToken({ id: user[0].id, email, name: user[0].name });
         return cb({ user: { name: user.name, email, id: user._id }, token });
       } else {
         user = await User.findOne({ email }).select("+password");
@@ -68,7 +68,7 @@ exports.signUp = (io, socket, client) => {
         if (!(await comparePassword(password, user.password)))
           return cb({ error: "password or email are worng" });
 
-        token = signToken({ id: user._id, email });
+        token = signToken({ id: user._id, email, name: user.name });
         cb({ user: { name: user.name, email, id: user._id }, token });
       }
 
@@ -77,7 +77,6 @@ exports.signUp = (io, socket, client) => {
         JSON.stringify({
           name: user.name,
           email,
-          socketId: socket.id,
           id: user._id,
         })
       );
@@ -94,6 +93,9 @@ exports.signUp = (io, socket, client) => {
       socket.join(socket.user.data.id);
       const usersString = await client.smembers("users");
       let users = usersString.map((user) => JSON.parse(user));
+      // todo: make it so when a user that has token and is not on the ...
+      //todo:  redis db they either have to login again or just add them to redis
+
       cb(users, socket.user.data);
     } catch (err) {
       const error = handleError(err);
@@ -102,7 +104,19 @@ exports.signUp = (io, socket, client) => {
   };
 
   const onDisconnect = async () => {
-    // code...
+    //! test this
+    try {
+      handleToken(socket);
+      const user = JSON.stringify({
+        name: socket.user.data.name,
+        email: socket.user.data.email,
+        id: socket.user.data._id,
+      });
+      client.srem("users", user);
+      console.log("disconnect");
+    } catch (err) {
+      console.log(err);
+    }
   };
 
   socket.on("signup", signup);

@@ -43,7 +43,7 @@ module.exports = (io, socket, client) => {
         content: message,
         reciever: recieverId,
       });
-    } catch (error) {
+    } catch (err) {
       const error = handleError(err);
       cb({ error });
     }
@@ -67,7 +67,7 @@ module.exports = (io, socket, client) => {
         return msg1.createdAt - msg2.createdAt;
       });
       cb({ message: prevMessages });
-    } catch (error) {
+    } catch (err) {
       const error = handleError(err);
       cb({ error });
     }
