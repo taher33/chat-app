@@ -104,15 +104,16 @@ exports.signUp = (io, socket, client) => {
   };
 
   const onDisconnect = async () => {
-    //! test this
     try {
       handleToken(socket);
+
       const user = JSON.stringify({
         name: socket.user.data.name,
         email: socket.user.data.email,
-        id: socket.user.data._id,
+        id: socket.user.data.id,
       });
-      client.srem("users", user);
+      //remove the user from redis
+      await client.srem("users", user);
       console.log("disconnect");
     } catch (err) {
       console.log(err);
